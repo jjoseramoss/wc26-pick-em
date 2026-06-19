@@ -82,6 +82,7 @@ export default function Dashboard() {
   const [saving, setSaving] = useState<string | null>(null)
   const [tab, setTab] = useState<'picks' | 'leaderboard'>('picks')
   const [showHowToPlay, setShowHowToPlay] = useState(false)
+  const [playerModal, setPlayerModal] = useState<{ userId: string; displayName: string } | null>(null)
 
   const [panel, setPanel] = useState<Panel>(null)
   const [panelTab, setPanelTab] = useState<'create' | 'join'>('create')
@@ -642,9 +643,12 @@ export default function Dashboard() {
                               <span className="text-xs font-bold text-gray-400">{i + 1}</span>
                             )}
                           </span>
-                          <span className={`font-bold text-sm ${isMe ? 'text-black' : 'text-gray-800'}`}>
+                          <button
+                            onClick={() => setPlayerModal({ userId: entry.user_id, displayName: entry.display_name })}
+                            className={`font-bold text-sm underline underline-offset-2 decoration-dotted transition ${isMe ? 'text-black hover:text-gray-600' : 'text-gray-800 hover:text-gray-500'}`}
+                          >
                             {entry.display_name}
-                          </span>
+                          </button>
                           {isMe && (
                             <span className="text-xs bg-yellow-400 text-black font-black px-1.5 py-0.5 rounded-full uppercase tracking-wide">you</span>
                           )}
@@ -663,6 +667,17 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* ── Player picks modal ── */}
+      {playerModal && (
+        <PlayerPicksModal
+          userId={playerModal.userId}
+          displayName={playerModal.displayName}
+          groupId={activeGroup?.id ?? ''}
+          matches={matches}
+          onClose={() => setPlayerModal(null)}
+        />
+      )}
 
       {/* ── How to play FAB ── */}
       <button
@@ -697,6 +712,152 @@ export default function Dashboard() {
         />
       )}
     </>
+  )
+}
+
+// ── Player Picks modal ─────────────────────────────────────────────────
+interface PlayerPick {
+  match_id: string
+  home_score_pred: number
+  away_score_pred: number
+  points: number | null
+}
+
+function PlayerPicksModal({
+  userId, displayName, groupId, matches, onClose,
+}: {
+  userId: string
+  displayName: string
+  groupId: string
+  matches: Match[]
+  onClose: () => void
+}) {
+  const [picks, setPicks] = useState<PlayerPick[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!groupId) return
+    supabase
+      .from('picks')
+      .select('match_id, home_score_pred, away_score_pred, points')
+      .eq('user_id', userId)
+      .eq('group_id', groupId)
+      .then(({ data }) => {
+        setPicks(data ?? [])
+        setLoading(false)
+      })
+  }, [userId, groupId])
+
+  const pickMap = Object.fromEntries(picks.map(p => [p.match_id, p]))
+  const played = [...matches].filter(m => isLocked(m.kickoff_time)).reverse()
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-3" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        className="relative bg-gray-100 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col"
+        style={{ maxHeight: '88dvh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-black rounded-t-2xl px-4 py-3 flex items-center justify-between flex-shrink-0">
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-widest leading-none">Picks for</p>
+            <h2 className="font-black text-white text-base uppercase tracking-tight mt-0.5">{displayName}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:bg-gray-700 transition font-black text-xs flex-shrink-0"
+          >
+            X
+          </button>
+        </div>
+
+        {/* WC stripe */}
+        <div className="flex h-0.5 flex-shrink-0">
+          <div className="flex-1 bg-red-600" />
+          <div className="flex-1 bg-white" />
+          <div className="flex-1 bg-green-600" />
+          <div className="flex-1 bg-blue-700" />
+        </div>
+
+        {/* Picks list */}
+        <div className="overflow-y-auto flex-1 px-3 py-3">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <img src="/soccer-ball.png" alt="" className="w-8 h-8 animate-bounce" />
+            </div>
+          ) : played.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-8">No completed matches yet.</p>
+          ) : (
+            <div className="space-y-2">
+            {played.map(match => {
+              const pick = pickMap[match.id]
+              const hasResult = !!match.winner
+              return (
+                <div key={match.id} className="bg-white rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                  {/* Match header strip */}
+                  <div className="bg-gray-800 px-3 py-1.5 flex items-center justify-between">
+                    <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide leading-none">
+                      {match.group_label ? `Grp ${match.group_label}` : match.stage}
+                      {' · '}{new Date(match.kickoff_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                    {pick?.points != null && (
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full uppercase ${
+                        pick.points === 3 ? 'bg-yellow-400 text-black'
+                        : pick.points === 1 ? 'bg-green-500 text-white'
+                        : 'bg-gray-700 text-gray-400'
+                      }`}>
+                        {pick.points}pt{pick.points !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Teams + score row */}
+                  <div className="flex items-center px-3 py-2.5 gap-2">
+                    {/* Home */}
+                    <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                      <img src={flagUrl(match.team_home) ?? undefined} alt={match.team_home} className="w-7 h-5 object-cover rounded" />
+                      <span className="text-[10px] font-black uppercase text-gray-700 text-center leading-tight truncate w-full text-center">
+                        {match.team_home}
+                      </span>
+                    </div>
+
+                    {/* Score pill */}
+                    <div className="flex flex-col items-center flex-shrink-0 gap-1">
+                      <div className="bg-gray-800 rounded-xl px-3 py-1 min-w-[72px] text-center">
+                        {hasResult ? (
+                          <span className="text-white text-base font-black">
+                            {match.home_score} : {match.away_score}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest">FT</span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-gray-400 text-center leading-none">
+                        {pick
+                          ? <>pick: <span className="font-bold text-gray-600">{pick.home_score_pred}:{pick.away_score_pred}</span></>
+                          : <span className="italic text-gray-300">no pick</span>
+                        }
+                      </div>
+                    </div>
+
+                    {/* Away */}
+                    <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                      <img src={flagUrl(match.team_away) ?? undefined} alt={match.team_away} className="w-7 h-5 object-cover rounded" />
+                      <span className="text-[10px] font-black uppercase text-gray-700 text-center leading-tight truncate w-full text-center">
+                        {match.team_away}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
