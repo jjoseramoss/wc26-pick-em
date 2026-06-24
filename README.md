@@ -62,14 +62,20 @@ cd world-cup-pickems
 npm install
 ```
 
-Create a `.env.local`:
-```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+Create a `.env.local` from the example file:
+```bash
+cp .env.local.example .env.local
 ```
 
+Then fill in your Supabase values:
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+```
+
+For Codespaces, start the app with:
 ```bash
-npm run dev
+npm run dev:host
 ```
 
 ## Testing
