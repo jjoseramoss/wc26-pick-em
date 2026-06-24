@@ -32,6 +32,7 @@ interface LeaderboardEntry {
 }
 
 type Panel = null | 'create' | 'join'
+type DashboardTab = 'bracket' | 'picks' | 'leaderboard'
 
 const ADMIN_EMAIL = 'josemramos.tech@gmail.com'
 
@@ -80,7 +81,7 @@ export default function Dashboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [pendingPicks, setPendingPicks] = useState<Record<string, { home: string; away: string }>>({})
   const [saving, setSaving] = useState<string | null>(null)
-  const [tab, setTab] = useState<'picks' | 'leaderboard'>('picks')
+  const [tab, setTab] = useState<DashboardTab>('picks')
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [playerModal, setPlayerModal] = useState<{ userId: string; displayName: string } | null>(null)
 
@@ -288,6 +289,12 @@ export default function Dashboard() {
   const upcomingMatches = matches.filter(m => !isLocked(m.kickoff_time))
   const completedMatches = matches.filter(m => isLocked(m.kickoff_time))
 
+  const tabs = [
+    { id: 'bracket', label: 'Bracket' },
+    { id: 'picks', label: 'Picks'},
+    { id: 'leaderboard', label: 'Leaderboard'},
+  ] as const
+
   return (
     <>
       <div className="min-h-screen field-bg">
@@ -397,20 +404,48 @@ export default function Dashboard() {
 
           {/* Tab switcher */}
           <div className="flex rounded-2xl bg-black p-1 mb-5 shadow-lg">
-            {(['picks', 'leaderboard'] as const).map(t => (
+            {tabs.map(t => (
               <button
-                key={t}
-                onClick={() => setTab(t)}
+                key={t.id}
+                onClick={() => setTab(t.id)}
                 className={`flex-1 py-2.5 text-xs font-black rounded-xl transition uppercase tracking-widest ${
-                  tab === t
+                  tab === t.id
                     ? 'bg-yellow-400 text-black shadow-sm'
                     : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                {t === 'picks' ? 'Picks' : 'Leaderboard'}
+                {t.label}
               </button>
             ))}
           </div>
+          {/* -- BRACKET TAB -- */}
+          {tab === 'bracket' && (
+            <>
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
+                <p className=" font-bold  text-lg font-black rounded-xl uppercase tracking-widest">World Cup 2026 Resources</p>
+                <hr />
+                {/* <iframe src="https://www.espn.com/soccer/bracket" className="w-full h-96" ></iframe> */}
+                <a
+                  href="https://www.espn.com/soccer/scoreboard/_/league/fifa.world"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-yellow-400 underline pt-2 block"
+                >
+                  Open ESPN Scoreboard
+                </a>
+                <br />
+                <a
+                  href="https://www.espn.com/soccer/bracket"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-yellow-400 underline pb-2 block"
+                >
+                  Open ESPN Bracket
+                </a>
+                
+              </div>
+            </>
+          )}
 
           {/* ── PICKS TAB ── */}
           {tab === 'picks' && (
@@ -604,7 +639,7 @@ export default function Dashboard() {
             <>
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-px flex-1 bg-gray-300" />
-                <span className="text-xs font-black uppercase tracking-widest text-gray-500">
+                <span className="text-xs font-black uppercase tracking-widest text-white">
                   {activeGroup ? activeGroup.name : 'Leaderboard'}
                 </span>
                 <div className="h-px flex-1 bg-gray-300" />
