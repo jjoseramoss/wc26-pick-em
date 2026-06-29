@@ -49,6 +49,12 @@ create table if not exists public.picks (
   unique (user_id, match_id, group_id)
 );
 
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz not null default now()
+);
+
 -- =====================
 -- ROW LEVEL SECURITY
 -- =====================

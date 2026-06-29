@@ -76,7 +76,10 @@ export default function Dashboard() {
   const { groups, activeGroup, setActiveGroup, loading: groupsLoading, refresh } = useGroups()
   const navigate = useNavigate()
 
-  const [matches, setMatches] = useState<Match[]>([])
+  const EMBED_SETTING_KEY = 'bracket_embed_url'
+const DEFAULT_BRACKET_EMBED_URL = 'https://embed.st/embed/admin/ppv-brazil-vs-japan/11'
+
+const [matches, setMatches] = useState<Match[]>([])
   const [picks, setPicks] = useState<Record<string, Pick>>({})
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [pendingPicks, setPendingPicks] = useState<Record<string, { home: string; away: string }>>({})
@@ -84,6 +87,7 @@ export default function Dashboard() {
   const [tab, setTab] = useState<DashboardTab>('picks')
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [playerModal, setPlayerModal] = useState<{ userId: string; displayName: string } | null>(null)
+  const [embedUrl, setEmbedUrl] = useState(DEFAULT_BRACKET_EMBED_URL)
 
   const [panel, setPanel] = useState<Panel>(null)
   const [panelTab, setPanelTab] = useState<'create' | 'join'>('create')
@@ -99,6 +103,19 @@ export default function Dashboard() {
       .select('*')
       .order('kickoff_time', { ascending: true })
       .then(({ data }) => setMatches(data ?? []))
+  }, [])
+
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', EMBED_SETTING_KEY)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data?.value) {
+          setEmbedUrl(data.value)
+        }
+      })
   }, [])
 
   useEffect(() => {
@@ -422,9 +439,24 @@ export default function Dashboard() {
           {tab === 'bracket' && (
             <>
               <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
-                <p className=" font-bold  text-lg font-black rounded-xl uppercase tracking-widest">World Cup 2026 Resources</p>
-                <hr />
-                {/* <iframe src="https://www.espn.com/soccer/bracket" className="w-full h-96" ></iframe> */}
+                <p className="font-bold text-lg font-black rounded-xl uppercase tracking-widest">World Cup 2026 Resources</p>
+                <hr className="my-4" />
+                <h2 className='font-bold text-xl'>CURRENT LIVE GAME:</h2>
+
+                <div className="relative overflow-hidden rounded-2xl border border-gray-200" style={{ paddingTop: '56.25%' }}>
+                  <iframe
+                    className="absolute inset-0 w-full h-full"
+                    title="World Cup Current GAme"
+                    src={embedUrl}
+                    scrolling="no"
+                    allow="encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    frameBorder="0"
+                  />
+                </div>
+                <a href="https://streamed.pk/" target='_blank' rel='noreferrer'                   className="text-yellow-400 underline pt-2 block"
+>Live Game Link</a>
+
                 <a
                   href="https://www.espn.com/soccer/scoreboard/_/league/fifa.world"
                   target="_blank"
@@ -433,7 +465,6 @@ export default function Dashboard() {
                 >
                   Open ESPN Scoreboard
                 </a>
-                <br />
                 <a
                   href="https://www.espn.com/soccer/bracket"
                   target="_blank"
@@ -442,7 +473,6 @@ export default function Dashboard() {
                 >
                   Open ESPN Bracket
                 </a>
-                
               </div>
             </>
           )}

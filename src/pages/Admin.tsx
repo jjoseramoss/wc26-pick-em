@@ -75,8 +75,10 @@ function winnerLabel(home: number, away: number, teamHome: string, teamAway: str
   return 'Draw'
 }
 
-type AdminTab = 'results' | 'add'
+type AdminTab = 'results' | 'add' | 'settings'
 type Filter = 'pending' | 'all'
+
+const EMBED_SETTING_KEY = 'bracket_embed_url'
 
 export default function Admin() {
   const { user, loading: authLoading } = useAuth()
@@ -90,6 +92,12 @@ export default function Admin() {
   const [filter, setFilter] = useState<Filter>('pending')
   const [matchesLoading, setMatchesLoading] = useState(true)
   const [adminTab, setAdminTab] = useState<AdminTab>('results')
+
+  const [embedUrl, setEmbedUrl] = useState('')
+  const [embedLoading, setEmbedLoading] = useState(true)
+  const [embedSaving, setEmbedSaving] = useState(false)
+  const [embedError, setEmbedError] = useState('')
+  const [embedSuccess, setEmbedSuccess] = useState('')
 
   // Add-match form state
   const [addHome, setAddHome] = useState('')
@@ -118,7 +126,23 @@ export default function Admin() {
       })
   }, [user])
 
-  if (authLoading || matchesLoading) {
+  useEffect(() => {
+    if (!user || user.email !== ADMIN_EMAIL) return
+    setEmbedLoading(true)
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', EMBED_SETTING_KEY)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data?.value) {
+          setEmbedUrl(data.value)
+        }
+        setEmbedLoading(false)
+      })
+  }, [user])
+
+  if (authLoading || matchesLoading || embedLoading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <img src="/soccer-ball.png" alt="" className="w-12 h-12 animate-bounce" />
@@ -280,6 +304,14 @@ export default function Admin() {
           >
             + Add Match
           </button>
+          <button
+            onClick={() => setAdminTab('settings')}
+            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
+              adminTab === 'settings' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Embed URL
+          </button>
         </div>
 
         {/* ── ADD MATCH TAB ── */}
@@ -366,6 +398,59 @@ export default function Admin() {
                 className="w-full bg-yellow-500 text-gray-900 font-bold py-3 rounded-xl hover:bg-yellow-400 transition disabled:opacity-60 text-sm"
               >
                 {addLoading ? 'Adding...' : 'Add Match'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ── SETTINGS TAB ── */}
+        {adminTab === 'settings' && (
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
+            <h2 className="font-bold text-white mb-1">Bracket Embed URL</h2>
+            <p className="text-xs text-gray-500 mb-5">
+              Only the admin can update this URL. Paste the full iframe source link below and save it.
+            </p>
+            <form
+              onSubmit={async e => {
+                e.preventDefault()
+                setEmbedError('')
+                setEmbedSuccess('')
+                const trimmed = embedUrl.trim()
+                if (!trimmed) {
+                  setEmbedError('Embed URL is required.')
+                  return
+                }
+                setEmbedSaving(true)
+                const { error: saveError } = await supabase
+                  .from('app_settings')
+                  .upsert({ key: EMBED_SETTING_KEY, value: trimmed }, { onConflict: 'key' })
+                if (saveError) {
+                  setEmbedError(saveError.message)
+                } else {
+                  setEmbedSuccess('Embed URL saved successfully.')
+                }
+                setEmbedSaving(false)
+              }}
+              className="flex flex-col gap-4"
+            >
+              <label className="block text-xs font-medium text-gray-400">
+                Embed URL
+                <input
+                  type="url"
+                  value={embedUrl}
+                  onChange={e => setEmbedUrl(e.target.value)}
+                  placeholder="https://embed.st/embed/admin/ppv-brazil-vs-japan/11"
+                  className="mt-2 w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </label>
+              {embedError && <p className="text-red-400 text-sm">{embedError}</p>}
+              {embedSuccess && <p className="text-green-400 text-sm">{embedSuccess}</p>}
+              <button
+                type="submit"
+                disabled={embedSaving}
+                className="w-full bg-yellow-500 text-gray-900 font-bold py-3 rounded-xl hover:bg-yellow-400 transition disabled:opacity-60 text-sm"
+              >
+                {embedSaving ? 'Saving URL...' : 'Save URL'}
               </button>
             </form>
           </div>
