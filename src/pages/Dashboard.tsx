@@ -441,7 +441,7 @@ const [matches, setMatches] = useState<Match[]>([])
               <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
                 <p className="font-bold text-lg font-black rounded-xl uppercase tracking-widest">World Cup 2026 Resources</p>
                 <hr className="my-4" />
-                {/* <h2 className='font-bold text-xl'>CURRENT LIVE GAME:</h2>
+                <h2 className='font-bold text-xl'>CURRENT LIVE GAME:</h2>
 
                 <div className="relative overflow-hidden rounded-2xl border border-gray-200" style={{ paddingTop: '56.25%' }}>
                   <iframe
@@ -453,7 +453,7 @@ const [matches, setMatches] = useState<Match[]>([])
                     allowFullScreen
                     frameBorder="0"
                   />
-                </div> */}
+                </div>
                 <a href="https://streamed.pk/" target='_blank' rel='noreferrer'                   className="text-yellow-400 underline pt-2 block"
 >Live Game Link</a>
 
