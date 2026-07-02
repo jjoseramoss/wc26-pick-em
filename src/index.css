@@ -31,7 +31,7 @@
 @layer components {
   /* Soccer field background */
   .field-bg {
-    background-image: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('/mexico-field.png');
+    background-image: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('/wc-bg-trophy.jpg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
