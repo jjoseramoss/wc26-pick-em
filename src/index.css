@@ -10,6 +10,30 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* World Cup colorful scrollbar — used on the bracket's horizontal scroller */
+  .scrollbar-wc {
+    scrollbar-width: thin;
+    scrollbar-color: #22c55e rgba(255, 255, 255, 0.08);
+  }
+  .scrollbar-wc::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+  }
+  .scrollbar-wc::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+  }
+  .scrollbar-wc::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: linear-gradient(90deg, #dc2626, #ffffff, #16a34a, #1d4ed8);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .scrollbar-wc::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #ef4444, #ffffff, #22c55e, #2563eb);
+    background-clip: padding-box;
+  }
 }
 
 @layer base {

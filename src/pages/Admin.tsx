@@ -16,6 +16,7 @@ interface Match {
   home_score: number | null
   away_score: number | null
   winner: string | null
+  match_number: number | null
 }
 
 interface PendingResult {
@@ -104,6 +105,7 @@ export default function Admin() {
   const [addAway, setAddAway] = useState('')
   const [addKickoff, setAddKickoff] = useState('')
   const [addStage, setAddStage] = useState('R32')
+  const [addMatchNumber, setAddMatchNumber] = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
   const [addSuccess, setAddSuccess] = useState('')
@@ -227,6 +229,7 @@ export default function Admin() {
         kickoff_time: new Date(addKickoff).toISOString(),
         stage: addStage,
         group_label: null,
+        match_number: addMatchNumber ? parseInt(addMatchNumber) : null,
       })
       .select()
       .single()
@@ -241,6 +244,7 @@ export default function Admin() {
       setAddAway('')
       setAddKickoff('')
       setAddStage('R32')
+      setAddMatchNumber('')
     }
     setAddLoading(false)
   }
@@ -373,6 +377,22 @@ export default function Admin() {
                   type="datetime-local"
                   value={addKickoff}
                   onChange={e => setAddKickoff(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Match Number */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                  Match Number <span className="text-gray-600">(optional — for bracket position)</span>
+                </label>
+                <input
+                  type="number"
+                  min={73}
+                  max={104}
+                  value={addMatchNumber}
+                  onChange={e => setAddMatchNumber(e.target.value)}
+                  placeholder="e.g. 97 for QF1"
                   className={inputCls}
                 />
               </div>
