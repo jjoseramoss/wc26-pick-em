@@ -4,6 +4,7 @@ import { supabase } from '../utils/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupContext'
 import type { Group } from '../context/GroupContext'
+import BracketView from '../components/BracketView'
 
 interface Match {
   id: string
@@ -15,6 +16,7 @@ interface Match {
   home_score: number | null
   away_score: number | null
   winner: string | null
+  match_number: number | null
 }
 
 interface Pick {
@@ -438,15 +440,28 @@ const [matches, setMatches] = useState<Match[]>([])
           {/* -- BRACKET TAB -- */}
           {tab === 'bracket' && (
             <>
-              <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
-                <p className="font-bold text-lg font-black rounded-xl uppercase tracking-widest">World Cup 2026 Resources</p>
-                <hr className="my-4" />
-                <h2 className='font-bold text-xl'>CURRENT LIVE GAME:</h2>
+              
 
-                <div className="relative overflow-hidden rounded-2xl border border-gray-200" style={{ paddingTop: '56.25%' }}>
+              {/* Full tournament bracket — breaks out to full viewport width on laptop+ so the whole bracket is visible, background stays transparent to show the field art behind it */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl border mb-5  border-white/20 p-4 lg:w-screen lg:max-w-none lg:relative lg:left-1/2 lg:right-1/2 lg:-mx-[50vw] lg:rounded-none lg:border-x-0 lg:px-8">
+                <h2 className="text-xs font-black uppercase tracking-widest text-white mb-3 text-center">
+                  Tournament Bracket
+                </h2>
+                <BracketView
+                  allMatches={matches}
+                  picks={picks}
+                  onPickSaved={(matchId, pick) => setPicks(prev => ({ ...prev, [matchId]: pick }))}
+                  activeGroup={activeGroup}
+                  user={user}
+                />
+              </div>
+
+              {/* Live game / links strip */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
+                <div className="relative overflow-hidden rounded-xl border border-gray-200" style={{ paddingTop: '56.25%' }}>
                   <iframe
                     className="absolute inset-0 w-full h-full"
-                    title="World Cup Current GAme"
+                    title="World Cup Live"
                     src={embedUrl}
                     scrolling="no"
                     allow="encrypted-media; picture-in-picture"
@@ -454,25 +469,10 @@ const [matches, setMatches] = useState<Match[]>([])
                     frameBorder="0"
                   />
                 </div>
-                <a href="https://streamed.pk/" target='_blank' rel='noreferrer'                   className="text-yellow-400 underline pt-2 block"
->Live Game Link</a>
-
-                <a
-                  href="https://www.espn.com/soccer/scoreboard/_/league/fifa.world"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-yellow-400 underline pt-2 block"
-                >
-                  Open ESPN Scoreboard
-                </a>
-                <a
-                  href="https://www.espn.com/soccer/bracket"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-yellow-400 underline pb-2 block"
-                >
-                  Open ESPN Bracket
-                </a>
+                <div className="flex justify-center gap-6 pt-3">
+                  <a href="https://streamed.pk/" target="_blank" rel="noreferrer" className="text-yellow-400 underline text-sm">Live stream</a>
+                  <a href="https://www.espn.com/soccer/scoreboard/_/league/fifa.world" target="_blank" rel="noreferrer" className="text-yellow-400 underline text-sm">ESPN Scores</a>
+                </div>
               </div>
             </>
           )}
