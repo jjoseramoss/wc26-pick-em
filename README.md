@@ -2,7 +2,7 @@
 
 A real-time scoreline prediction app for the 2026 FIFA World Cup. Compete with friends and family — pick the exact score of every match, earn points, and climb the leaderboard.
 
-**Live:** [your-url-here.vercel.app](https://your-url-here.vercel.app)
+**Live:** [https://wc26-pick-em.vercel.app/](https://wc26-pick-em.vercel.app)
 
 ---
 
@@ -16,11 +16,11 @@ A real-time scoreline prediction app for the 2026 FIFA World Cup. Compete with f
 
 ## Tech stack
 
-| Layer | Tech |
-|---|---|
-| Frontend | React, TypeScript, Tailwind CSS |
+| Layer        | Tech                                  |
+| ------------ | ------------------------------------- |
+| Frontend     | React, TypeScript, Tailwind CSS       |
 | Backend / DB | Supabase (PostgreSQL, Auth, Realtime) |
-| Deployment | Vercel |
+| Deployment   | Vercel                                |
 
 No custom backend server — Supabase handles auth, the database, and real-time subscriptions.
 
@@ -37,11 +37,11 @@ No custom backend server — Supabase handles auth, the database, and real-time 
 
 ## Scoring
 
-| Prediction | Points |
-|---|---|
-| Exact scoreline (e.g. 2-1, result 2-1) | 3 pts |
-| Correct result / draw, wrong score | 1 pt |
-| Wrong result | 0 pts |
+| Prediction                             | Points |
+| -------------------------------------- | ------ |
+| Exact scoreline (e.g. 2-1, result 2-1) | 3 pts  |
+| Correct result / draw, wrong score     | 1 pt   |
+| Wrong result                           | 0 pts  |
 
 ## Database schema
 
@@ -63,17 +63,20 @@ npm install
 ```
 
 Create a `.env.local` from the example file:
+
 ```bash
 cp .env.local.example .env.local
 ```
 
 Then fill in your Supabase values:
+
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 ```
 
 For Codespaces, start the app with:
+
 ```bash
 npm run dev:host
 ```
