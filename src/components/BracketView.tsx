@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
-import { supabase } from '../utils/supabase'
 import type { Group } from '../context/GroupContext'
+import { savePick as savePickToDatabase } from '../utils/picks'
+import type { Pick } from '../utils/picks'
+import { parsePredictedScore } from '../utils/scoring'
 
 // ─────────────────────────────────────────────
 // Types
@@ -16,14 +18,6 @@ interface Match {
   away_score: number | null
   winner: string | null
   match_number: number | null
-}
-
-interface Pick {
-  id: string
-  match_id: string
-  home_score_pred: number
-  away_score_pred: number
-  points: number | null
 }
 
 interface User {
@@ -99,6 +93,7 @@ interface BracketCardProps {
   pendingPicks: Record<string, { home: string; away: string }>
   setPendingPicks: React.Dispatch<React.SetStateAction<Record<string, { home: string; away: string }>>>
   saving: string | null
+  errors: Record<string, string>
   onSave: (matchId: string) => void
   hasGroup: boolean
 }
@@ -106,7 +101,7 @@ interface BracketCardProps {
 function BracketCard({
   matchNum, match, pick,
   pendingPicks, setPendingPicks,
-  saving, onSave, hasGroup,
+  saving, errors, onSave, hasGroup,
 }: BracketCardProps) {
   // No match row in DB yet → TBD
   if (!match) {
@@ -237,7 +232,7 @@ function BracketCard({
         )}
 
         {/* Save button */}
-        {isDirty && !hasResult && (
+        {isDirty && !locked && !hasResult && (
           <div className="pt-0.5">
             {hasGroup ? (
               <button
@@ -252,6 +247,7 @@ function BracketCard({
             )}
           </div>
         )}
+        {errors[matchId] && <p role="alert" className="text-[9px] text-red-600">{errors[matchId]}</p>}
       </div>
     </div>
   )
@@ -269,11 +265,12 @@ interface BracketColumnProps {
   pendingPicks: Record<string, { home: string; away: string }>
   setPendingPicks: React.Dispatch<React.SetStateAction<Record<string, { home: string; away: string }>>>
   saving: string | null
+  errors: Record<string, string>
   onSave: (matchId: string) => void
   hasGroup: boolean
 }
 
-function BracketColumn({ label, matchNums, matchMap, picks, pendingPicks, setPendingPicks, saving, onSave, hasGroup }: BracketColumnProps) {
+function BracketColumn({ label, matchNums, matchMap, picks, pendingPicks, setPendingPicks, saving, errors, onSave, hasGroup }: BracketColumnProps) {
   const labelColor = label === 'SF' || label === 'QF'
     ? 'text-yellow-500'
     : label === 'R16'
@@ -295,6 +292,7 @@ function BracketColumn({ label, matchNums, matchMap, picks, pendingPicks, setPen
               pendingPicks={pendingPicks}
               setPendingPicks={setPendingPicks}
               saving={saving}
+              errors={errors}
               onSave={onSave}
               hasGroup={hasGroup}
             />
@@ -312,6 +310,7 @@ function BracketColumn({ label, matchNums, matchMap, picks, pendingPicks, setPen
 export default function BracketView({ allMatches, picks, onPickSaved, activeGroup, user }: BracketViewProps) {
   const [pendingPicks, setPendingPicks] = useState<Record<string, { home: string; away: string }>>({})
   const [saving, setSaving] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Build match_number → match lookup
   const matchMap = useMemo(() => {
@@ -326,23 +325,19 @@ export default function BracketView({ allMatches, picks, onPickSaved, activeGrou
     if (!user || !activeGroup) return
     const p = pendingPicks[matchId]
     if (!p) return
-    const home = parseInt(p.home)
-    const away = parseInt(p.away)
-    if (isNaN(home) || isNaN(away)) return
     setSaving(matchId)
-    const { data, error } = await supabase
-      .from('picks')
-      .upsert(
-        { user_id: user.id, match_id: matchId, group_id: activeGroup.id, home_score_pred: home, away_score_pred: away },
-        { onConflict: 'user_id,match_id,group_id' }
-      )
-      .select()
-      .single()
-    if (!error && data) {
-      onPickSaved(matchId, data as Pick)
+    setErrors(prev => ({ ...prev, [matchId]: '' }))
+    try {
+      const home = parsePredictedScore(p.home)
+      const away = parsePredictedScore(p.away)
+      const data = await savePickToDatabase(user.id, activeGroup.id, matchId, home, away, picks[matchId]?.id)
+      onPickSaved(matchId, data)
       setPendingPicks(prev => { const n = { ...prev }; delete n[matchId]; return n })
+    } catch (error) {
+      setErrors(prev => ({ ...prev, [matchId]: error instanceof Error ? error.message : 'Could not save pick' }))
+    } finally {
+      setSaving(null)
     }
-    setSaving(null)
   }
 
   const columnProps = {
@@ -351,6 +346,7 @@ export default function BracketView({ allMatches, picks, onPickSaved, activeGrou
     pendingPicks,
     setPendingPicks,
     saving,
+    errors,
     onSave,
     hasGroup: !!activeGroup,
   }

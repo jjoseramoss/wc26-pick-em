@@ -5,6 +5,10 @@ import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupContext'
 import type { Group } from '../context/GroupContext'
 import BracketView from '../components/BracketView'
+import { createGroup, joinGroup } from '../utils/groups'
+import { savePick as savePickToDatabase } from '../utils/picks'
+import type { Pick } from '../utils/picks'
+import { parsePredictedScore } from '../utils/scoring'
 
 interface Match {
   id: string
@@ -19,14 +23,6 @@ interface Match {
   match_number: number | null
 }
 
-interface Pick {
-  id: string
-  match_id: string
-  home_score_pred: number
-  away_score_pred: number
-  points: number | null
-}
-
 interface LeaderboardEntry {
   display_name: string
   user_id: string
@@ -35,8 +31,6 @@ interface LeaderboardEntry {
 
 type Panel = null | 'create' | 'join'
 type DashboardTab = 'bracket' | 'picks' | 'leaderboard'
-
-const ADMIN_EMAIL = 'josemramos.tech@gmail.com'
 
 const TEAM_ISO: Record<string, string> = {
   'Mexico': 'mx', 'South Africa': 'za', 'South Korea': 'kr', 'Czechia': 'cz',
@@ -68,29 +62,20 @@ function isLocked(kickoff: string) {
   return new Date() >= new Date(kickoff)
 }
 
-function randomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-}
-
 export default function Dashboard() {
   const { user, signOut } = useAuth()
   const { groups, activeGroup, setActiveGroup, loading: groupsLoading, refresh } = useGroups()
   const navigate = useNavigate()
 
-  const EMBED_SETTING_KEY = 'bracket_embed_url'
-const DEFAULT_BRACKET_EMBED_URL = 'https://embed.st/embed/admin/ppv-brazil-vs-japan/11'
-
-const [matches, setMatches] = useState<Match[]>([])
+  const [matches, setMatches] = useState<Match[]>([])
   const [picks, setPicks] = useState<Record<string, Pick>>({})
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [pendingPicks, setPendingPicks] = useState<Record<string, { home: string; away: string }>>({})
   const [saving, setSaving] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<Record<string, string>>({})
   const [tab, setTab] = useState<DashboardTab>('picks')
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [playerModal, setPlayerModal] = useState<{ userId: string; displayName: string } | null>(null)
-  const [embedUrl, setEmbedUrl] = useState(DEFAULT_BRACKET_EMBED_URL)
-
   const [panel, setPanel] = useState<Panel>(null)
   const [panelTab, setPanelTab] = useState<'create' | 'join'>('create')
   const [formGroupName, setFormGroupName] = useState('')
@@ -105,19 +90,6 @@ const [matches, setMatches] = useState<Match[]>([])
       .select('*')
       .order('kickoff_time', { ascending: true })
       .then(({ data }) => setMatches(data ?? []))
-  }, [])
-
-  useEffect(() => {
-    supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', EMBED_SETTING_KEY)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (!error && data?.value) {
-          setEmbedUrl(data.value)
-        }
-      })
   }, [])
 
   useEffect(() => {
@@ -192,33 +164,16 @@ const [matches, setMatches] = useState<Match[]>([])
     if (!user) return
     setFormLoading(true)
     setFormError('')
-    const code = randomCode()
-    const { data: group, error: groupErr } = await supabase
-      .from('groups')
-      .insert({ name: formGroupName.trim(), invite_code: code, created_by: user.id })
-      .select()
-      .single()
-    if (groupErr || !group) {
-      setFormError(groupErr?.message ?? 'Failed to create group')
+    try {
+      const group = await createGroup(formGroupName, formDisplayName || user.email?.split('@')[0] || 'Player')
+      await refresh()
+      setActiveGroup(group)
+      setPanel(null)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Failed to create group')
+    } finally {
       setFormLoading(false)
-      return
     }
-    const { error: memberErr } = await supabase
-      .from('group_members')
-      .insert({
-        group_id: group.id,
-        user_id: user.id,
-        display_name: formDisplayName.trim() || user.email!.split('@')[0],
-      })
-    if (memberErr) {
-      setFormError(memberErr.message)
-      setFormLoading(false)
-      return
-    }
-    await refresh()
-    setActiveGroup(group as Group)
-    setPanel(null)
-    setFormLoading(false)
   }
 
   async function handleJoin(e: React.FormEvent) {
@@ -226,44 +181,16 @@ const [matches, setMatches] = useState<Match[]>([])
     if (!user) return
     setFormLoading(true)
     setFormError('')
-    const code = formInviteCode.trim().toUpperCase()
-    const { data: group, error: findErr } = await supabase
-      .from('groups')
-      .select()
-      .eq('invite_code', code)
-      .single()
-    if (findErr || !group) {
-      setFormError('Group not found — double-check the invite code.')
+    try {
+      const group = await joinGroup(formInviteCode, formDisplayName || user.email?.split('@')[0] || 'Player')
+      await refresh()
+      setActiveGroup(group)
+      setPanel(null)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Failed to join group')
+    } finally {
       setFormLoading(false)
-      return
     }
-    const { data: existing } = await supabase
-      .from('group_members')
-      .select('group_id')
-      .eq('group_id', group.id)
-      .eq('user_id', user.id)
-      .maybeSingle()
-    if (existing) {
-      setFormError("You're already in this group.")
-      setFormLoading(false)
-      return
-    }
-    const { error: joinErr } = await supabase
-      .from('group_members')
-      .insert({
-        group_id: group.id,
-        user_id: user.id,
-        display_name: formDisplayName.trim() || user.email!.split('@')[0],
-      })
-    if (joinErr) {
-      setFormError(joinErr.message)
-      setFormLoading(false)
-      return
-    }
-    await refresh()
-    setActiveGroup(group as Group)
-    setPanel(null)
-    setFormLoading(false)
   }
 
   const handleSignOut = async () => {
@@ -275,23 +202,19 @@ const [matches, setMatches] = useState<Match[]>([])
     if (!user || !activeGroup) return
     const p = pendingPicks[matchId]
     if (!p) return
-    const home = parseInt(p.home)
-    const away = parseInt(p.away)
-    if (isNaN(home) || isNaN(away)) return
     setSaving(matchId)
-    const { data, error } = await supabase
-      .from('picks')
-      .upsert(
-        { user_id: user.id, match_id: matchId, group_id: activeGroup.id, home_score_pred: home, away_score_pred: away },
-        { onConflict: 'user_id,match_id,group_id' }
-      )
-      .select()
-      .single()
-    if (!error && data) {
+    setSaveError(prev => ({ ...prev, [matchId]: '' }))
+    try {
+      const home = parsePredictedScore(p.home)
+      const away = parsePredictedScore(p.away)
+      const data = await savePickToDatabase(user.id, activeGroup.id, matchId, home, away, picks[matchId]?.id)
       setPicks(prev => ({ ...prev, [matchId]: data }))
       setPendingPicks(prev => { const n = { ...prev }; delete n[matchId]; return n })
+    } catch (error) {
+      setSaveError(prev => ({ ...prev, [matchId]: error instanceof Error ? error.message : 'Could not save pick' }))
+    } finally {
+      setSaving(null)
     }
-    setSaving(null)
   }
 
   if (groupsLoading) {
@@ -328,14 +251,6 @@ const [matches, setMatches] = useState<Match[]>([])
                 <span className="font-black text-lg text-yellow-400 tracking-tight">'EM 26</span>
               </div>
               <div className="flex items-center gap-4">
-                {user?.email === ADMIN_EMAIL && (
-                  <button
-                    onClick={() => navigate('/admin')}
-                    className="text-yellow-400 text-xs font-bold uppercase tracking-widest hover:text-yellow-300 transition"
-                  >
-                    Admin
-                  </button>
-                )}
                 <button
                   onClick={handleSignOut}
                   className="text-gray-400 text-xs uppercase tracking-widest hover:text-white transition"
@@ -456,24 +371,6 @@ const [matches, setMatches] = useState<Match[]>([])
                 />
               </div>
 
-              {/* Live game / links strip */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
-                <div className="relative overflow-hidden rounded-xl border border-gray-200" style={{ paddingTop: '56.25%' }}>
-                  <iframe
-                    className="absolute inset-0 w-full h-full"
-                    title="World Cup Live"
-                    src={embedUrl}
-                    scrolling="no"
-                    allow="encrypted-media; picture-in-picture"
-                    allowFullScreen
-                    frameBorder="0"
-                  />
-                </div>
-                <div className="flex justify-center gap-6 pt-3">
-                  <a href="https://streamed.pk/" target="_blank" rel="noreferrer" className="text-yellow-400 underline text-sm">Live stream</a>
-                  <a href="https://www.espn.com/soccer/scoreboard/_/league/fifa.world" target="_blank" rel="noreferrer" className="text-yellow-400 underline text-sm">ESPN Scores</a>
-                </div>
-              </div>
             </>
           )}
 
@@ -562,13 +459,16 @@ const [matches, setMatches] = useState<Match[]>([])
                           {isDirty && (
                             <div className="px-4 pb-4">
                               {activeGroup ? (
-                                <button
-                                  onClick={() => savePick(match.id)}
-                                  disabled={saving === match.id}
-                                  className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs py-3 rounded-xl uppercase tracking-widest transition disabled:opacity-50"
-                                >
-                                  {saving === match.id ? 'Saving...' : 'Save Pick'}
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => savePick(match.id)}
+                                    disabled={saving === match.id}
+                                    className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs py-3 rounded-xl uppercase tracking-widest transition disabled:opacity-50"
+                                  >
+                                    {saving === match.id ? 'Saving...' : 'Save Pick'}
+                                  </button>
+                                  {saveError[match.id] && <p role="alert" className="text-red-600 text-xs mt-2">{saveError[match.id]}</p>}
+                                </>
                               ) : (
                                 <p className="text-center text-xs text-gray-400 uppercase tracking-wide">
                                   Join a group above to save picks

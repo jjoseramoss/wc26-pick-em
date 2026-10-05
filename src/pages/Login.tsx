@@ -16,6 +16,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
 
   if (!loading && user) return <Navigate to="/dashboard" replace />
 
@@ -23,13 +24,16 @@ export default function Login() {
     e.preventDefault()
     setSubmitting(true)
     setError('')
+    setInfo('')
 
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({ email, password })
+      const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) {
         setError(error.message)
-      } else {
+      } else if (data.session) {
         navigate('/dashboard', { replace: true })
+      } else {
+        setInfo('Check your email for a confirmation link, then sign in.')
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -72,7 +76,7 @@ export default function Login() {
               <button
                 key={m}
                 type="button"
-                onClick={() => { setMode(m); setError('') }}
+                onClick={() => { setMode(m); setError(''); setInfo('') }}
                 className={'flex-1 py-2.5 text-xs font-black rounded-lg transition uppercase tracking-widest ' + (
                   mode === m ? 'bg-yellow-400 text-black' : 'text-gray-500 hover:text-gray-300'
                 )}
@@ -111,6 +115,11 @@ export default function Login() {
             {error && (
               <div className="bg-red-950 border border-red-800 rounded-xl px-4 py-3 text-red-400 text-sm font-medium">
                 {error}
+              </div>
+            )}
+            {info && (
+              <div role="status" className="bg-green-950 border border-green-800 rounded-xl px-4 py-3 text-green-300 text-sm font-medium">
+                {info}
               </div>
             )}
 

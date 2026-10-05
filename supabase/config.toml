@@ -1,0 +1,6 @@
+# Local Supabase project used for migration and policy tests.
+project_id = "wc26-pick-em"
+
+[db.seed]
+# The historical World Cup seed is reference data, not part of security tests.
+enabled = false
