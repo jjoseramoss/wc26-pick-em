@@ -33,3 +33,12 @@ export function calculatePoints(
 
   return 0
 }
+
+/** A browser input must be a whole, nonnegative score before we save it. */
+export function parsePredictedScore(value: string): number {
+  const score = Number(value)
+  if (value.trim() === '' || !Number.isInteger(score) || score < 0) {
+    throw new Error('Enter a whole number of goals, zero or higher, for both teams.')
+  }
+  return score
+}

@@ -43,12 +43,10 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     setLoading(true)
 
     // Step 1: get group IDs this user belongs to
-    console.log('[Groups] fetching for user:', user.id)
     const { data: memberRows, error: memberErr } = await supabase
       .from('group_members')
       .select('group_id')
       .eq('user_id', user.id)
-    console.log('[Groups] memberRows:', memberRows, 'error:', memberErr)
 
     if (memberErr || !memberRows || memberRows.length === 0) {
       setGroups([])

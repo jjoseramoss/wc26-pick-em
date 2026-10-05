@@ -1,25 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../utils/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useGroups } from '../context/GroupContext'
-
-function randomCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase()
-}
+import { createGroup, joinGroup } from '../utils/groups'
 
 export default function Groups() {
   const { user } = useAuth()
-  const { groups, refresh } = useGroups()
+  const { groups, refresh, setActiveGroup } = useGroups()
   const navigate = useNavigate()
-  const [redirecting, setRedirecting] = useState(false)
-
-  // Navigate once context actually reflects the new group
-  useEffect(() => {
-    if (redirecting && groups.length > 0) {
-      navigate('/dashboard')
-    }
-  }, [redirecting, groups, navigate])
 
   const [tab, setTab] = useState<'create' | 'join'>('create')
   const [groupName, setGroupName] = useState('')
@@ -34,33 +22,16 @@ export default function Groups() {
     setLoading(true)
     setError('')
 
-    const code = randomCode()
-
-    const { data: group, error: groupErr } = await supabase
-      .from('groups')
-      .insert({ name: groupName.trim(), invite_code: code, created_by: user.id })
-      .select()
-      .single()
-
-    if (groupErr || !group) {
-      setError(groupErr?.message ?? 'Failed to create group')
+    try {
+      const group = await createGroup(groupName, displayName || user.email?.split('@')[0] || 'Player')
+      await refresh()
+      setActiveGroup(group)
+      navigate('/dashboard')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to create group')
+    } finally {
       setLoading(false)
-      return
     }
-
-    const { error: memberErr } = await supabase
-      .from('group_members')
-      .insert({ group_id: group.id, user_id: user.id, display_name: displayName.trim() || user.email!.split('@')[0] })
-
-    if (memberErr) {
-      setError(memberErr.message)
-      setLoading(false)
-      return
-    }
-
-    setLoading(false)
-    setRedirecting(true)
-    refresh()
   }
 
   const handleJoin = async (e: React.FormEvent) => {
@@ -69,47 +40,16 @@ export default function Groups() {
     setLoading(true)
     setError('')
 
-    const code = inviteCode.trim().toUpperCase()
-
-    const { data: group, error: findErr } = await supabase
-      .from('groups')
-      .select()
-      .eq('invite_code', code)
-      .single()
-
-    if (findErr || !group) {
-      setError('Group not found. Check the invite code.')
+    try {
+      const group = await joinGroup(inviteCode, displayName || user.email?.split('@')[0] || 'Player')
+      await refresh()
+      setActiveGroup(group)
+      navigate('/dashboard')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to join group')
+    } finally {
       setLoading(false)
-      return
     }
-
-    // Check already a member
-    const { data: existing } = await supabase
-      .from('group_members')
-      .select()
-      .eq('group_id', group.id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (existing) {
-      setError('You\'re already in this group.')
-      setLoading(false)
-      return
-    }
-
-    const { error: joinErr } = await supabase
-      .from('group_members')
-      .insert({ group_id: group.id, user_id: user.id, display_name: displayName.trim() || user.email!.split('@')[0] })
-
-    if (joinErr) {
-      setError(joinErr.message)
-      setLoading(false)
-      return
-    }
-
-    setLoading(false)
-    setRedirecting(true)
-    refresh()
   }
 
   return (

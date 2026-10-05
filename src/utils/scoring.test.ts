@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveWinner, calculatePoints } from './scoring'
+import { deriveWinner, calculatePoints, parsePredictedScore } from './scoring'
 
 // ─────────────────────────────────────────────
 // deriveWinner
@@ -21,6 +21,19 @@ describe('deriveWinner', () => {
     expect(deriveWinner(0, 0)).toBe('draw')
     expect(deriveWinner(1, 1)).toBe('draw')
     expect(deriveWinner(3, 3)).toBe('draw')
+  })
+})
+
+describe('score input validation', () => {
+  it('accepts whole nonnegative scores', () => {
+    expect(parsePredictedScore('0')).toBe(0)
+    expect(parsePredictedScore('12')).toBe(12)
+  })
+
+  it('rejects empty, negative, fractional, and partial values', () => {
+    for (const value of ['', '-1', '1.5', '2goals']) {
+      expect(() => parsePredictedScore(value)).toThrow()
+    }
   })
 })
 
