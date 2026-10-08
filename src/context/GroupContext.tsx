@@ -1,21 +1,28 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import type { ReactNode } from 'react'
-import { supabase } from '../utils/supabase'
-import { useAuth } from './AuthContext'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import type { ReactNode } from "react";
+import { supabase } from "../utils/supabase";
+import { useAuth } from "./AuthContext";
 
 export interface Group {
-  id: string
-  name: string
-  invite_code: string
-  created_by: string
+  id: string;
+  season_id: string;
+  name: string;
+  invite_code: string;
+  created_by: string;
 }
 
 interface GroupContextType {
-  groups: Group[]
-  activeGroup: Group | null
-  setActiveGroup: (g: Group | null) => void
-  loading: boolean
-  refresh: () => Promise<void>
+  groups: Group[];
+  activeGroup: Group | null;
+  setActiveGroup: (g: Group | null) => void;
+  loading: boolean;
+  refresh: () => Promise<void>;
 }
 
 const GroupContext = createContext<GroupContextType>({
@@ -24,69 +31,79 @@ const GroupContext = createContext<GroupContextType>({
   setActiveGroup: () => {},
   loading: true,
   refresh: async () => {},
-})
+});
 
 export function GroupProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
-  const [groups, setGroups] = useState<Group[]>([])
-  const [activeGroup, setActiveGroup] = useState<Group | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth();
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [activeGroup, setActiveGroup] = useState<Group | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const fetchGroups = useCallback(async () => {
     if (!user) {
-      setGroups([])
-      setActiveGroup(null)
-      setLoading(false)
-      return
+      setGroups([]);
+      setActiveGroup(null);
+      setLoading(false);
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     // Step 1: get group IDs this user belongs to
     const { data: memberRows, error: memberErr } = await supabase
-      .from('group_members')
-      .select('group_id')
-      .eq('user_id', user.id)
+      .from("group_members")
+      .select("group_id")
+      .eq("user_id", user.id);
 
     if (memberErr || !memberRows || memberRows.length === 0) {
-      setGroups([])
-      setActiveGroup(null)
-      setLoading(false)
-      return
+      setGroups([]);
+      setActiveGroup(null);
+      setLoading(false);
+      return;
     }
 
-    const groupIds = memberRows.map(r => r.group_id)
+    const groupIds = memberRows.map((r) => r.group_id);
 
     // Step 2: fetch the actual group records
     const { data: groupRows } = await supabase
-      .from('groups')
-      .select('id, name, invite_code, created_by')
-      .in('id', groupIds)
+      .from("groups")
+      .select("id, season_id, name, invite_code, created_by")
+      .in("id", groupIds);
 
-    const fetched: Group[] = groupRows ?? []
-    setGroups(fetched)
+    const fetched: Group[] = groupRows ?? [];
+    setGroups(fetched);
 
     // Keep activeGroup in sync or default to first
-    setActiveGroup(prev => {
+    setActiveGroup((prev) => {
       if (prev) {
-        const still = fetched.find(g => g.id === prev.id)
-        return still ?? fetched[0] ?? null
+        const still = fetched.find((g) => g.id === prev.id);
+        return still ?? fetched[0] ?? null;
       }
-      return fetched[0] ?? null
-    })
+      return fetched[0] ?? null;
+    });
 
-    setLoading(false)
-  }, [user])
+    setLoading(false);
+  }, [user]);
 
-  useEffect(() => { fetchGroups() }, [fetchGroups])
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
 
   return (
-    <GroupContext.Provider value={{ groups, activeGroup, setActiveGroup, loading, refresh: fetchGroups }}>
+    <GroupContext.Provider
+      value={{
+        groups,
+        activeGroup,
+        setActiveGroup,
+        loading,
+        refresh: fetchGroups,
+      }}
+    >
       {children}
     </GroupContext.Provider>
-  )
+  );
 }
 // eslint-disable-next-line react-refresh/only-export-components
 export function useGroups() {
-  return useContext(GroupContext)
+  return useContext(GroupContext);
 }
