@@ -1,6 +1,6 @@
-# ⚽ Pick'em 26
+# Pickem
 
-A scoreline prediction app for the 2026 FIFA World Cup. Compete with friends and family — pick the exact score of every match, earn points, and climb the leaderboard.
+A soccer scoreline prediction app for private groups. Choose a season, pick the exact score of each fixture, earn points, and climb your group's table. The 2026 World Cup season remains available as history.
 
 **Live:** [https://wc26-pick-em.vercel.app/](https://wc26-pick-em.vercel.app)
 
@@ -14,7 +14,8 @@ Deploy the database migrations and frontend together; the updated group flows re
 - **Earn points** — 3 pts for the exact score, 1 pt for the correct result, 0 for a miss.
 - **Private groups** — create a group, share a 6-character invite code with your crew, and compete on a leaderboard.
 - **Group leaderboard** — points are recalculated when a result is entered or corrected; refresh the dashboard to see changes made by other people.
-- **Mobile-first** — designed to be used on your phone during match day.
+- **Responsive workspace** — a wide desktop dashboard and compact mobile navigation.
+- **Account profile** — update your profile name and email through Supabase Auth. Group leaderboard names are chosen separately when you join a group.
 
 ## Tech stack
 
@@ -48,9 +49,14 @@ No custom backend server — Supabase handles auth and the database. The app cur
 ## Database schema
 
 ```
-groups          — id, name, invite_code, created_by
+competitions    — id, name, kind
+seasons         — id, competition_id, label
+season_phases   — id, season_id, name, format
+teams           — id, name
+season_teams    — season_id, team_id
+groups          — id, season_id, name, invite_code, created_by
 group_members   — group_id, user_id, display_name
-matches         — id, team_home, team_away, kickoff_time, stage, home_score, away_score, winner
+matches         — id, season_id, phase_id, team_home, team_away, kickoff_time, home_score, away_score, winner
 picks           — id, user_id, match_id, group_id, home_score_pred, away_score_pred, points
 ```
 
@@ -88,6 +94,32 @@ For Codespaces, start the app with:
 ```bash
 npm run dev:host
 ```
+
+### Try the local demo league
+
+With the Supabase CLI and a Docker-compatible runtime running:
+
+```bash
+supabase start
+bash scripts/load-local-demo.sh
+supabase status -o env
+```
+
+If OrbStack is running but `docker` is not on your Mac's PATH, run
+`export PATH="/Applications/OrbStack.app/Contents/MacOS/xbin:$PATH"` in that
+terminal first.
+
+Use the local `API_URL` and `PUBLISHABLE_KEY` from the last command as
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in your ignored
+`.env.local`. Restart `npm run dev` after changing that file. Sign up locally,
+open `/groups`, and create a group for **Practice 2026/27**. Its one future
+fixture is **Northside FC vs Southside FC** in the Picks tab.
+
+The demo SQL is [supabase/seed.local-demo.sql](supabase/seed.local-demo.sql).
+It is loaded only through the local Docker database; it is not a migration or
+hosted seed. You can verify the API flow with `node scripts/verify-local-demo.mjs`.
+To return localhost to the hosted project, remove or rename `.env.local` and
+restart Vite; the ignored `.env` will then be used.
 
 ## Testing
 

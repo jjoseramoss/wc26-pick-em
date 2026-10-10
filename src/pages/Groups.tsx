@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AppShell from "../components/AppShell";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useGroups } from "../context/GroupContext";
@@ -24,6 +25,7 @@ export default function Groups() {
   const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [groupError, setGroupError] = useState("");
 
   useEffect(() => {
     async function loadSeasons() {
@@ -91,163 +93,221 @@ export default function Groups() {
     }
   };
 
+  async function handleLeave(groupId: string, groupName: string) {
+    if (
+      !user ||
+      !window.confirm(
+        `Leave "${groupName}"? Your picks will remain, but you'll be removed from the group.`,
+      )
+    )
+      return;
+    setGroupError("");
+    const { error } = await supabase
+      .from("group_members")
+      .delete()
+      .eq("group_id", groupId)
+      .eq("user_id", user.id);
+    if (error) {
+      setGroupError(error.message);
+      return;
+    }
+    await refresh();
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-green-700 text-white px-4 py-4">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="text-green-200 hover:text-white text-sm"
-          >
-            ← Back
-          </button>
-          <span className="font-bold">Groups</span>
+    <AppShell>
+      <div className="hero-band">
+        <div>
+          <span className="eyebrow">YOUR PEOPLE / YOUR SEASON</span>
+          <h1 className="page-title">
+            Play together<span className="accent">.</span>
+          </h1>
+          <p className="page-copy">
+            Build a private group around a season, or use an invite code to join
+            the table.
+          </p>
         </div>
       </div>
-
-      <div className="max-w-lg mx-auto px-4 py-6">
-        {/* Existing groups */}
-        {groups.length > 0 && (
-          <div className="mb-6">
-            <h2 className="font-bold text-gray-900 mb-3">Your Groups</h2>
-            <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+      <div className="groups-grid">
+        <section className="panel group-form">
+          <div className="group-mode" role="tablist" aria-label="Group action">
+            <button
+              className={tab === "create" ? "active" : ""}
+              role="tab"
+              aria-selected={tab === "create"}
+              onClick={() => {
+                setTab("create");
+                setError("");
+              }}
+            >
+              Create a group
+            </button>
+            <button
+              className={tab === "join" ? "active" : ""}
+              role="tab"
+              aria-selected={tab === "join"}
+              onClick={() => {
+                setTab("join");
+                setError("");
+              }}
+            >
+              Join with code
+            </button>
+          </div>
+          <h2
+            style={{
+              fontSize: 30,
+              letterSpacing: "-.05em",
+              fontWeight: 850,
+              margin: "0 0 8px",
+            }}
+          >
+            {tab === "create" ? "Start something." : "Get in the game."}
+          </h2>
+          <p className="form-intro">
+            {tab === "create"
+              ? "Choose a season and name your group. We will give you a code to share."
+              : "Enter the six character code from your friend to join their group."}
+          </p>
+          <form onSubmit={tab === "create" ? handleCreate : handleJoin}>
+            {tab === "create" ? (
+              <>
+                <div className="form-field">
+                  <label htmlFor="seasonId">Season</label>
+                  <select
+                    className="form-input"
+                    id="seasonId"
+                    value={seasonId}
+                    required
+                    onChange={(e) => setSeasonId(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Choose a season
+                    </option>
+                    {seasons.map((season) => (
+                      <option key={season.id} value={season.id}>
+                        {season.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label htmlFor="groupName">Group name</label>
+                  <input
+                    className="form-input"
+                    id="groupName"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                    placeholder="Sunday Football Club"
+                    required
+                    maxLength={80}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="form-field">
+                <label htmlFor="inviteCode">Invite code</label>
+                <input
+                  className="form-input"
+                  id="inviteCode"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  placeholder="ABC123"
+                  maxLength={6}
+                  required
+                  style={{
+                    textTransform: "uppercase",
+                    letterSpacing: ".12em",
+                    fontWeight: 800,
+                  }}
+                />
+              </div>
+            )}
+            <div className="form-field">
+              <label htmlFor="displayName">Your name in this group</label>
+              <input
+                className="form-input"
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder={user?.email?.split("@")[0] || "Your name"}
+                maxLength={40}
+              />
+              <span className="form-help">
+                This is how friends will see you on the leaderboard.
+              </span>
+            </div>
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <button
+              className="button-primary"
+              type="submit"
+              disabled={loading}
+              style={{ width: "100%" }}
+            >
+              {loading
+                ? "Working…"
+                : tab === "create"
+                  ? "Create group"
+                  : "Join group"}{" "}
+              <span>↗</span>
+            </button>
+          </form>
+        </section>
+        <aside>
+          <div className="section-heading">
+            <h2>Your groups</h2>
+            <span>{groups.length.toString().padStart(2, "0")} total</span>
+          </div>
+          {groupError && (
+            <p className="form-error" role="alert">
+              {groupError}
+            </p>
+          )}
+          {groups.length ? (
+            <div className="group-list">
               {groups.map((g) => (
-                <div
-                  key={g.id}
-                  className="flex items-center justify-between px-4 py-3"
-                >
-                  <span className="font-medium text-gray-900">{g.name}</span>
-                  <span className="font-mono text-green-600 font-bold text-sm">
-                    {g.invite_code}
-                  </span>
+                <div className="panel group-list-item" key={g.id}>
+                  <button
+                    className="hover:text-[#d5322b] hover:underline hover:underline-offset-2 transition-colors"
+                    onClick={() => {
+                      setActiveGroup(g);
+                      navigate("/dashboard");
+                    }}
+                  >
+                    <span className="eyebrow">YOUR GROUP</span>
+                    <h3>{g.name}</h3>
+                    <p>Open this group's dashboard</p>
+                  </button>
+                  <div className="group-list-actions">
+                    <code title="Invite code">{g.invite_code}</code>
+                    <button
+                      className="text-button"
+                      onClick={() => handleLeave(g.id, g.name)}
+                    >
+                      Leave group
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="empty-state">
+              No groups yet. Create one here or ask a friend for an invite code.
+            </div>
+          )}
+          <div className="panel rail-panel dark" style={{ marginTop: 15 }}>
+            <div className="rail-title">How groups work</div>
+            <p className="rail-description">
+              Each group follows one season. Everyone predicts the same
+              fixtures, and every saved pick contributes to that group's table.
+            </p>
           </div>
-        )}
-
-        {/* Tab switcher */}
-        <div className="flex rounded-xl bg-gray-200 p-1 mb-5">
-          {(["create", "join"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => {
-                setTab(t);
-                setError("");
-              }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
-                tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-              }`}
-            >
-              {t === "create" ? "Create Group" : "Join Group"}
-            </button>
-          ))}
-        </div>
-
-        {tab === "create" ? (
-          <form
-            onSubmit={handleCreate}
-            className="bg-white rounded-2xl border border-gray-200 p-6"
-          >
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Choose Season
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                name="season"
-                id="seasonId"
-                value={seasonId}
-                required
-                onChange={(e) => setSeasonId(e.target.value)}
-              >
-                <option value="" disabled>
-                  Choose a season
-                </option>
-                {seasons.map((season) => (
-                  <option key={season.id} value={season.id}>
-                    {season.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Group name
-              </label>
-              <input
-                type="text"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                placeholder="Ramos Family"
-                required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Your display name
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Jose"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
-            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-green-600 text-white font-semibold py-2.5 rounded-lg hover:bg-green-700 transition text-sm disabled:opacity-60"
-            >
-              {loading ? "Creating…" : "Create Group"}
-            </button>
-          </form>
-        ) : (
-          <form
-            onSubmit={handleJoin}
-            className="bg-white rounded-2xl border border-gray-200 p-6"
-          >
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Invite code
-              </label>
-              <input
-                type="text"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="ABC123"
-                maxLength={6}
-                required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Your display name
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Jose"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
-            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-green-600 text-white font-semibold py-2.5 rounded-lg hover:bg-green-700 transition text-sm disabled:opacity-60"
-            >
-              {loading ? "Joining…" : "Join Group"}
-            </button>
-          </form>
-        )}
+        </aside>
       </div>
-    </div>
+    </AppShell>
   );
 }

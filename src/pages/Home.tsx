@@ -1,65 +1,25 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 export default function Home() {
-  return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* WC26 4-color stripe top */}
-      <div className="flex h-1.5">
-        <div className="flex-1 bg-red-600" />
-        <div className="flex-1 bg-white" />
-        <div className="flex-1 bg-green-600" />
-        <div className="flex-1 bg-blue-700" />
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-
-        {/* WC26 Logo image */}
-        <div className="mb-6 w-52">
-          <img
-            src="/wc26-logo.png"
-            alt="FIFA World Cup 26"
-            className="w-full h-auto object-contain drop-shadow-2xl"
-          />
-        </div>
-
-        {/* Branding */}
-        <div className="text-center mb-2">
-          <h1 className="font-black text-5xl leading-none tracking-tight">
-            PICK<span className="text-yellow-400">'EM</span>
-          </h1>
-        </div>
-
-        {/* Tagline */}
-        <p className="text-gray-500 text-sm text-center mt-5 mb-10 max-w-xs">
-          Pick every scoreline. Compete with your crew. One group, one champion.
-        </p>
-
-        {/* CTA buttons */}
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <Link
-            to="/login"
-            className="bg-yellow-400 text-black font-black text-sm py-4 px-6 rounded-2xl text-center uppercase tracking-widest hover:bg-yellow-300 transition"
-          >
-            Sign In
-          </Link>
-          <Link
-            to="/login"
-            state={{ mode: 'signup' }}
-            className="border-2 border-gray-700 text-gray-300 font-black text-sm py-4 px-6 rounded-2xl text-center uppercase tracking-widest hover:border-gray-500 hover:text-white transition"
-          >
-            Create Account
-          </Link>
-        </div>
-      </div>
-
-      {/* Bottom stripe */}
-      <div className="flex h-1.5">
-        <div className="flex-1 bg-blue-700" />
-        <div className="flex-1 bg-green-600" />
-        <div className="flex-1 bg-white" />
-        <div className="flex-1 bg-red-600" />
-      </div>
-    </div>
-  )
+  const { user } = useAuth()
+  return <div className="landing">
+    <header className="landing-header">
+      <Link className="landing-logo" to="/">PICKEM<span className="brand-period">.</span></Link>
+      <nav>
+        {user ? <Link className="button-dark" to="/dashboard">Open dashboard <span>↗</span></Link> : <><Link className="button-outline" to="/login">Sign in</Link><Link className="button-dark" to="/login" state={{ mode: 'signup' }}>Get started <span>↗</span></Link></>}
+      </nav>
+    </header>
+    <section className="landing-hero">
+      <div><span className="eyebrow">A BETTER WAY TO WATCH THE GAME / 001</span><h1>CALL THE<br />SCORE<em>.</em><br />OWN THE<br />TABLE.</h1></div>
+      <div className="landing-hero-aside"><p>Turn every match into a competition with your people. Make your picks, track the scores, and see who knows the game.</p><Link className="button-primary" to={user ? '/groups' : '/login'} state={user ? undefined : { mode: 'signup' }}>Start your group <span>↗</span></Link></div>
+    </section>
+    <div className="landing-band"><strong>EVERY FIXTURE. EVERY PREDICTION. ONE TABLE.</strong><span>Football feels better together</span></div>
+    <section className="landing-steps"><span className="eyebrow">HOW IT WORKS / 003</span><div className="steps-grid">
+      <div className="step"><span className="step-num">01 / SET UP</span><h3>Pick a season.</h3><p>Create a private group around a season and share the invite code with your friends.</p></div>
+      <div className="step"><span className="step-num">02 / PREDICT</span><h3>Call the score.</h3><p>Enter your scoreline before kickoff. Picks lock when the match starts.</p></div>
+      <div className="step"><span className="step-num">03 / COMPETE</span><h3>Climb the table.</h3><p>Score points for correct results and exact scorelines. Follow your group leaderboard.</p></div>
+    </div></section>
+    <footer className="landing-footer"><strong>PICKEM<span className="brand-period">.</span></strong><span>Built for people who talk football.</span></footer>
+  </div>
 }
