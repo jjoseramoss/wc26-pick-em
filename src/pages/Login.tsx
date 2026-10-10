@@ -47,106 +47,20 @@ export default function Login() {
     setSubmitting(false)
   }
 
-  const inputCls = 'w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent'
-
-  return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Top stripe */}
-      <div className="flex h-1.5">
-        <div className="flex-1 bg-red-600" />
-        <div className="flex-1 bg-white" />
-        <div className="flex-1 bg-green-600" />
-        <div className="flex-1 bg-blue-700" />
-      </div>
-
-      <div className="flex-1 flex flex-col items-center justify-center px-5 py-10">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <img src="/soccer-ball.png" alt="" className="w-10 h-10 mb-3 mx-auto" />
-          <div className="font-black text-2xl tracking-tight">
-            PICK<span className="text-yellow-400">'EM</span>{" "}
-            <span className="text-yellow-400">26</span>
-          </div>
-        </div>
-
-        <div className="w-full max-w-sm">
-          {/* Mode toggle */}
-          <div className="flex bg-gray-900 rounded-xl p-1 mb-6 border border-gray-800">
-            {(['signin', 'signup'] as Mode[]).map(m => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => { setMode(m); setError(''); setInfo('') }}
-                className={'flex-1 py-2.5 text-xs font-black rounded-lg transition uppercase tracking-widest ' + (
-                  mode === m ? 'bg-yellow-400 text-black' : 'text-gray-500 hover:text-gray-300'
-                )}
-              >
-                {m === 'signin' ? 'Sign In' : 'Sign Up'}
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoFocus
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-                className={inputCls}
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-950 border border-red-800 rounded-xl px-4 py-3 text-red-400 text-sm font-medium">
-                {error}
-              </div>
-            )}
-            {info && (
-              <div role="status" className="bg-green-950 border border-green-800 rounded-xl px-4 py-3 text-green-300 text-sm font-medium">
-                {info}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-yellow-400 text-black font-black text-xs py-4 rounded-xl uppercase tracking-widest hover:bg-yellow-300 transition disabled:opacity-50 mt-1"
-            >
-              {submitting ? '...'  : mode === 'signin' ? 'Sign In' : 'Create Account'}
-            </button>
-          </form>
-
-          <div className="text-center mt-6">
-            <Link to="/" className="text-gray-600 text-xs uppercase tracking-widest hover:text-gray-400 transition">
-              Back
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom stripe */}
-      <div className="flex h-1.5">
-        <div className="flex-1 bg-blue-700" />
-        <div className="flex-1 bg-green-600" />
-        <div className="flex-1 bg-white" />
-        <div className="flex-1 bg-red-600" />
-      </div>
-    </div>
-  )
+  return <div className="auth-page">
+    <aside className="auth-art"><Link to="/" className="landing-logo" style={{color:'#fff'}}>PICKEM<span className="brand-period">.</span></Link><h1>YOUR<br/>GAME.<br/><span className="accent">YOUR</span><br/>CALL.</h1><p>Predict the score. Compete with your people.</p></aside>
+    <div className="auth-form-wrap"><div className="auth-form">
+      <span className="eyebrow">WELCOME TO PICKEM / 001</span>
+      <h2>{mode === 'signin' ? 'Back for more?' : 'Join the game.'}</h2>
+      <p className="page-copy">{mode === 'signin' ? 'Sign in to see your groups and make your next pick.' : 'Create an account and start a group with friends.'}</p>
+      <div className="auth-mode" role="tablist" aria-label="Account action">{(['signin','signup'] as Mode[]).map(m => <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'active' : ''} onClick={() => {setMode(m);setError('');setInfo('')}}>{m === 'signin' ? 'Sign in' : 'Create account'}</button>)}</div>
+      <form onSubmit={handleSubmit}>
+        <div className="form-field"><label htmlFor="email">Email address</label><input id="email" className="form-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" required autoFocus /></div>
+        <div className="form-field"><label htmlFor="password">Password</label><input id="password" className="form-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 6 characters" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={6} required /></div>
+        {error && <p className="form-error" role="alert">{error}</p>}{info && <p className="form-success" role="status">{info}</p>}
+        <button className="button-primary" type="submit" disabled={submitting} style={{width:'100%'}}>{submitting ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Create account'} <span>↗</span></button>
+      </form>
+      <p className="form-help" style={{marginTop:25}}>New season, new predictions. Your picks stay with your group.</p>
+    </div></div>
+  </div>
 }

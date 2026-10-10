@@ -7,8 +7,8 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <img src="/soccer-ball.png" alt="" className="w-12 h-12 animate-bounce" />
+      <div className="min-h-screen flex items-center justify-center" style={{background:'#f4f3ef'}}>
+        <p className="eyebrow">Loading your workspace…</p>
       </div>
     )
   }

@@ -25,10 +25,9 @@ export default function AuthCallback() {
   }, [navigate])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{background:'#f4f3ef'}}>
       <div className="text-center">
-        <img src="/soccer-ball.png" alt="" className="w-12 h-12 mb-4 animate-bounce" />
-        <p className="text-gray-600 font-medium">Signing you in…</p>
+        <p className="eyebrow">Signing you in…</p>
       </div>
     </div>
   )

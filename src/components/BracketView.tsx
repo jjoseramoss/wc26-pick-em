@@ -13,7 +13,7 @@ interface Match {
   team_home: string
   team_away: string
   kickoff_time: string
-  stage: string
+  stage: string | null
   home_score: number | null
   away_score: number | null
   winner: string | null
@@ -143,9 +143,9 @@ function BracketCard({
   // Points badge colour
   const ptsBadge = pick?.points != null ? (
     pick.points === 3
-      ? 'bg-yellow-400 text-black'
+      ? 'bg-red-600 text-black'
       : pick.points === 1
-      ? 'bg-green-500 text-white'
+      ? 'bg-gray-800 text-white'
       : 'bg-gray-300 text-gray-600'
   ) : null
 
@@ -162,7 +162,7 @@ function BracketCard({
           </span>
         )}
         {pick && !hasResult && (
-          <span className="text-[9px] text-green-400 font-black flex-shrink-0">✓</span>
+          <span className="text-[9px] text-red-600 font-black flex-shrink-0">✓</span>
         )}
       </div>
 
@@ -238,7 +238,7 @@ function BracketCard({
               <button
                 onClick={() => onSave(matchId)}
                 disabled={isSaving}
-                className="w-full bg-yellow-400 text-black text-[9px] font-black rounded py-1 uppercase tracking-wide disabled:opacity-50"
+                className="w-full bg-red-600 text-black text-[9px] font-black rounded py-1 uppercase tracking-wide disabled:opacity-50"
               >
                 {isSaving ? '...' : 'Save Pick'}
               </button>
@@ -272,9 +272,9 @@ interface BracketColumnProps {
 
 function BracketColumn({ label, matchNums, matchMap, picks, pendingPicks, setPendingPicks, saving, errors, onSave, hasGroup }: BracketColumnProps) {
   const labelColor = label === 'SF' || label === 'QF'
-    ? 'text-yellow-500'
+    ? 'text-red-600'
     : label === 'R16'
-    ? 'text-blue-400'
+    ? 'text-gray-500'
     : 'text-gray-400'
 
   return (
@@ -354,7 +354,7 @@ export default function BracketView({ allMatches, picks, onPickSaved, activeGrou
   return (
     <div>
       {/* Mobile scroll hint (hidden once the bracket fits full width) */}
-      <p className="text-center text-[11px] text-gray-300 mb-2 tracking-wide lg:hidden">
+      <p className="text-center text-[11px] text-gray-500 mb-2 tracking-wide lg:hidden">
         ← swipe to see full bracket →
       </p>
 
@@ -373,7 +373,7 @@ export default function BracketView({ allMatches, picks, onPickSaved, activeGrou
 
           {/* Center: Final + 3rd Place */}
           <div className="flex flex-col w-[148px]">
-            <div className="text-center text-[9px] font-black uppercase tracking-widest mb-1 text-yellow-400">
+            <div className="text-center text-[9px] font-black uppercase tracking-widest mb-1 text-red-600">
               Final
             </div>
             <div className="flex flex-col" style={{ height: TOTAL_HEIGHT }}>
