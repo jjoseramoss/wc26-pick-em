@@ -5,10 +5,12 @@ import { useAuth } from "../context/AuthContext";
 import { useGroups } from "../context/GroupContext";
 import { createGroup, joinGroup } from "../utils/groups";
 import { supabase } from "../utils/supabase";
+import { competitionName } from "../utils/seasons";
 
 type Season = {
   id: string;
   label: string;
+  competitions: { name: string }[];
 };
 
 export default function Groups() {
@@ -29,16 +31,23 @@ export default function Groups() {
 
   useEffect(() => {
     async function loadSeasons() {
+      const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("seasons")
-        .select("id, label");
+        .select("id, label, competitions(name)")
+        .lte("starts_on", today)
+        .gte("ends_on", today);
 
       if (error) {
         setError(`Could not load seasons: ${error.message}`);
         return;
       }
 
-      setSeasons(data ?? []);
+      setSeasons(
+        (data ?? []).sort((a, b) =>
+          competitionName(a.competitions).localeCompare(competitionName(b.competitions)),
+        ),
+      );
     }
 
     loadSeasons();
@@ -186,7 +195,7 @@ export default function Groups() {
                     </option>
                     {seasons.map((season) => (
                       <option key={season.id} value={season.id}>
-                        {season.label}
+                        {competitionName(season.competitions)} · {season.label}
                       </option>
                     ))}
                   </select>

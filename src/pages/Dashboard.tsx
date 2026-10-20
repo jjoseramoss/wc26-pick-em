@@ -8,12 +8,14 @@ import AppShell from "../components/AppShell";
 import { savePick as savePickToDatabase } from "../utils/picks";
 import type { Pick } from "../utils/picks";
 import { parsePredictedScore } from "../utils/scoring";
+import { competitionName } from "../utils/seasons";
 
 interface Match {
   id: string;
   team_home: string;
   team_away: string;
   kickoff_time: string;
+  pick_deadline_at: string;
   stage: string | null;
   phase_id: string | null;
   group_label: string | null;
@@ -21,6 +23,8 @@ interface Match {
   away_score: number | null;
   winner: string | null;
   match_number: number | null;
+  matchday: number | null;
+  status: "scheduled" | "live" | "postponed" | "cancelled" | "final";
 }
 
 interface LeaderboardEntry {
@@ -64,6 +68,7 @@ export default function Dashboard() {
   const [saving, setSaving] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<DashboardTab>("picks");
+  const [matchdaySelection, setMatchdaySelection] = useState<"auto" | "all" | number>("auto");
   const [seasonLabel, setSeasonLabel] = useState("");
   const [phaseNames, setPhaseNames] = useState<Record<string, string>>({});
   const [showHowToPlay, setShowHowToPlay] = useState(false);
@@ -85,11 +90,15 @@ export default function Dashboard() {
     setPhaseNames({});
     supabase
       .from("seasons")
-      .select("label")
+      .select("label, competitions(name)")
       .eq("id", seasonId)
       .single()
       .then(({ data }) => {
-        if (!cancelled) setSeasonLabel(data?.label ?? "");
+        if (!cancelled) {
+          setSeasonLabel(
+            data ? `${competitionName(data.competitions)} · ${data.label}` : "",
+          );
+        }
       });
     supabase
       .from("season_phases")
@@ -250,12 +259,35 @@ export default function Dashboard() {
   const pastMatches = matches.filter((m) => isLocked(m.kickoff_time));
   const hasBracket = matches.some((m) => m.match_number === 104);
   const visibleMatches = tab === "results" ? pastMatches : upcomingMatches;
+  const matchdays = [
+    ...new Set(
+      visibleMatches
+        .map((match) => match.matchday)
+        .filter((matchday): matchday is number => matchday !== null),
+    ),
+  ].sort((a, b) => a - b);
+  const nextPickableMatchday = visibleMatches.find(
+    (match) => match.status === "scheduled" && !isLocked(match.pick_deadline_at),
+  )?.matchday;
+  const defaultMatchday = tab === "results"
+    ? matchdays[matchdays.length - 1]
+    : nextPickableMatchday ?? matchdays[0];
+  const selectedMatchday = matchdaySelection === "auto"
+    ? defaultMatchday
+    : matchdaySelection === "all"
+      ? undefined
+      : matchdaySelection;
+  const displayedMatches = selectedMatchday === undefined
+    ? visibleMatches
+    : visibleMatches.filter((match) => match.matchday === selectedMatchday);
   const matchContext = (match: Match) =>
     match.group_label
       ? `Group ${match.group_label}`
-      : match.stage ||
-        (match.phase_id && phaseNames[match.phase_id]) ||
-        "Fixture";
+      : match.matchday
+        ? `Matchweek ${match.matchday}`
+        : match.stage ||
+          (match.phase_id && phaseNames[match.phase_id]) ||
+          "Fixture";
   const showMatchList = tab === "picks" || tab === "results";
 
   const leaderboardContent = !activeGroup ? (
@@ -316,6 +348,7 @@ export default function Dashboard() {
               onClick={() => {
                 setActiveGroup(g);
                 setTab("picks");
+                setMatchdaySelection("auto");
               }}
             >
               {g.name}
@@ -363,7 +396,10 @@ export default function Dashboard() {
               role="tab"
               aria-selected={tab === "picks"}
               className={tab === "picks" ? "active" : ""}
-              onClick={() => setTab("picks")}
+              onClick={() => {
+                setTab("picks");
+                setMatchdaySelection("auto");
+              }}
             >
               Upcoming ({upcomingMatches.length})
             </button>
@@ -371,7 +407,10 @@ export default function Dashboard() {
               role="tab"
               aria-selected={tab === "results"}
               className={tab === "results" ? "active" : ""}
-              onClick={() => setTab("results")}
+              onClick={() => {
+                setTab("results");
+                setMatchdaySelection("auto");
+              }}
             >
               Played ({pastMatches.length})
             </button>
@@ -394,6 +433,30 @@ export default function Dashboard() {
               Table
             </button>
           </div>
+          {showMatchList && matchdays.length > 0 && (
+            <div className="form-field" style={{ maxWidth: 240, marginTop: 16 }}>
+              <label htmlFor="matchday-filter">Matchweek</label>
+              <div className="matchday-select">
+                <select
+                  id="matchday-filter"
+                  className="form-input"
+                  value={selectedMatchday ?? "all"}
+                  onChange={(event) =>
+                    setMatchdaySelection(
+                      event.target.value === "all" ? "all" : Number(event.target.value),
+                    )
+                  }
+                >
+                  {matchdays.map((matchday) => (
+                    <option key={matchday} value={matchday}>
+                      Matchweek {matchday}
+                    </option>
+                  ))}
+                  <option value="all">All matchweeks</option>
+                </select>
+              </div>
+            </div>
+          )}
           {showMatchList &&
             (visibleMatches.length === 0 ? (
               <div className="empty-state">
@@ -407,9 +470,10 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="match-list">
-                {visibleMatches.map((match) => {
+                {displayedMatches.map((match) => {
                   const saved = picks[match.id];
                   const pending = pendingPicks[match.id];
+                  const canPick = match.status === "scheduled" && !isLocked(match.pick_deadline_at);
                   const homeVal =
                     pending?.home ??
                     (saved ? String(saved.home_score_pred) : "");
@@ -418,6 +482,14 @@ export default function Dashboard() {
                     (saved ? String(saved.away_score_pred) : "");
                   const hasResult =
                     match.home_score != null && match.away_score != null;
+                  let statusLabel = "Make your pick";
+                  if (match.status === "cancelled") statusLabel = "Cancelled";
+                  else if (match.status === "postponed") statusLabel = "Postponed";
+                  else if (tab === "results") {
+                    statusLabel = hasResult ? "Final" : "Awaiting result";
+                  } else if (!canPick) statusLabel = "Picks closed";
+                  else if (pending) statusLabel = "Unsaved";
+                  else if (saved) statusLabel = "Pick saved";
                   return (
                     <article className="panel match-card" key={match.id}>
                       <div className="match-card-header">
@@ -428,15 +500,7 @@ export default function Dashboard() {
                         <span
                           className={`match-status${saved && !pending ? " saved" : ""}`}
                         >
-                          {tab === "results"
-                            ? hasResult
-                              ? "Final"
-                              : "Awaiting result"
-                            : pending
-                              ? "Unsaved"
-                              : saved
-                                ? "Pick saved"
-                                : "Make your pick"}
+                          {statusLabel}
                         </span>
                       </div>
                       <div className="match-card-body">
@@ -444,7 +508,7 @@ export default function Dashboard() {
                           <span className="team-label">Home</span>
                           <span className="team-name">{match.team_home}</span>
                         </div>
-                        {tab === "picks" ? (
+                        {tab === "picks" && canPick ? (
                           <div className="score-box">
                             <input
                               type="number"
@@ -502,9 +566,9 @@ export default function Dashboard() {
                             ? `Your pick: ${saved.home_score_pred} : ${saved.away_score_pred}${saved.points != null ? `  ·  ${saved.points} pts` : ""}`
                             : tab === "results"
                               ? "No pick made"
-                              : "Enter your predicted score"}
+                              : canPick ? "Enter your predicted score" : "Picks closed"}
                         </span>
-                        {tab === "picks" && pending && (
+                        {tab === "picks" && canPick && pending && (
                           <button
                             disabled={saving === match.id}
                             onClick={() => savePick(match.id)}
@@ -652,7 +716,7 @@ function PlayerPicksModal({
         aria-modal="true"
         aria-label={`${displayName}'s picks`}
       >
-        <div className="flex justify-between items-center gap-4 p-5 border-b border-gray-200">
+        <div className="flex shrink-0 justify-between items-center gap-4 p-5 border-b border-gray-200">
           <div>
             <span className="eyebrow">PLAYER PICKS / COMPLETED FIXTURES</span>
             <h2 className="text-2xl font-black tracking-tight mt-1">
@@ -667,7 +731,7 @@ function PlayerPicksModal({
             ✕
           </button>
         </div>
-        <div className="overflow-y-auto p-4 grid gap-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
           {loading ? (
             <p className="empty-state">Loading picks…</p>
           ) : played.length === 0 ? (
@@ -678,11 +742,13 @@ function PlayerPicksModal({
               const hasResult =
                 match.home_score != null && match.away_score != null;
               return (
-                <div className="panel match-card" key={match.id}>
+                <div className="panel match-card shrink-0" key={match.id}>
                   <div className="match-card-header">
                     <span>
                       {match.group_label
                         ? `Group ${match.group_label}`
+                        : match.matchday
+                          ? `Matchweek ${match.matchday}`
                         : match.stage || "Fixture"}{" "}
                       /{" "}
                       {new Date(match.kickoff_time).toLocaleDateString(

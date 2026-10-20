@@ -158,6 +158,25 @@ input[type="number"] {
 .form-input:focus {
   border-color: #d5322b;
 }
+.matchday-select {
+  position: relative;
+}
+.matchday-select select {
+  appearance: none;
+  padding-right: 44px;
+}
+.matchday-select::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #171716;
+  border-bottom: 2px solid #171716;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
 .form-help {
   font-size: 12px;
   color: #777670;
