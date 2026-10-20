@@ -9,7 +9,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sync:local-seasons": "node scripts/sync-local-seasons.mjs"
   },
   "engines": {
     "node": ">=20 <25"
