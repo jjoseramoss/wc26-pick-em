@@ -8,3 +8,6 @@ enabled = false
 [functions.sync-football-data]
 # The function validates a Supabase secret key itself; Cron will use that key.
 verify_jwt = false
+
+[functions.sync-liga-mx]
+verify_jwt = false

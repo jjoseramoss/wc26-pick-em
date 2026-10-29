@@ -13,7 +13,7 @@ Deploy the database migrations and frontend together; the updated group flows re
 - **Pick every match** — predict the exact scoreline before kickoff. Picks lock automatically when the match starts.
 - **Earn points** — 3 pts for the exact score, 1 pt for the correct result, 0 for a miss.
 - **Private groups** — create a group, share a 6-character invite code with your crew, and compete on a leaderboard.
-- **Group leaderboard** — points are recalculated when a result is entered or corrected; refresh the dashboard to see changes made by other people.
+- **Group leaderboard** — points are recalculated when a provider reports or corrects a final result; refresh the dashboard to see changes made by other people.
 - **Responsive workspace** — a wide desktop dashboard and compact mobile navigation.
 - **Account profile** — update your profile name and email through Supabase Auth. Group leaderboard names are chosen separately when you join a group.
 
@@ -22,10 +22,10 @@ Deploy the database migrations and frontend together; the updated group flows re
 | Layer        | Tech                                  |
 | ------------ | ------------------------------------- |
 | Frontend     | React, TypeScript, Tailwind CSS       |
-| Backend / DB | Supabase (PostgreSQL, Auth) |
+| Backend / DB | Supabase (PostgreSQL, Auth, Edge Functions, Cron) |
 | Deployment   | Vercel                                |
 
-No custom backend server — Supabase handles auth and the database. The app currently fetches data on page load and after local pick changes; live subscriptions are a future improvement.
+No custom backend server — Supabase handles auth, the database, and scheduled data imports. The app currently fetches data on page load and after local pick changes; live subscriptions are a future improvement.
 
 ## Features
 
@@ -60,7 +60,13 @@ matches         — id, season_id, phase_id, team_home, team_away, kickoff_time,
 picks           — id, user_id, match_id, group_id, home_score_pred, away_score_pred, points
 ```
 
-Points are computed by a database trigger when a result is set or corrected. Predictions score the stored scoreline; a match tied after extra time is a draw for pick scoring even if one team advances on penalties. A result importer is planned but not built yet.
+Points are computed by a database trigger when a trusted importer sets or corrects a final result. Predictions score the stored scoreline; a match tied after extra time is a draw for pick scoring even if one team advances on penalties.
+
+## Automatic results
+
+The browser saves predictions but cannot set results or points. Supabase Cron calls private Edge Functions every two hours. `sync-football-data` imports the ongoing Premier League, La Liga, Bundesliga, Serie A, and Ligue 1 seasons from football-data.org. `sync-liga-mx` imports the **Apertura 2026 regular season** from ESPN's public scoreboard. Both sources store fixtures in the same `matches` table with stable provider IDs, so refreshes preserve existing picks. The PostgreSQL scoring trigger awards 3 points for an exact scoreline, 1 for the right result, and 0 otherwise only after a final score is saved.
+
+ESPN's scoreboard is public but undocumented. The Liga MX importer checks that it receives the expected 153 regular-season fixtures and 18 teams, and rejects unfamiliar match states before changing data. The Apertura playoffs are outside this regular-season launch. Provider results can be delayed; the next scheduled run records them once available.
 
 ## Data access
 
@@ -146,4 +152,4 @@ Deployed on Vercel via GitHub integration — every push to `main` triggers a pr
 
 ---
 
-Built for the 2026 World Cup. USA · Canada · Mexico.
+Started for the 2026 World Cup; now built for ongoing soccer seasons.
