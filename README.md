@@ -1,52 +1,54 @@
 # Pickem
 
-A soccer scoreline prediction app for private groups. Choose a season, pick the exact score of each fixture, earn points, and climb your group's table. The 2026 World Cup season remains available as history.
+A soccer scoreline prediction app for friends. Create a private group for a season, make picks before kickoff, and compare results on a group leaderboard. I started this for the 2026 World Cup and expanded it to ongoing club seasons while keeping the World Cup data as history.
 
 **Live:** [https://wc26-pick-em.vercel.app/](https://wc26-pick-em.vercel.app)
 
----
+## What you can do
 
-Deploy the database migrations and frontend together; the updated group flows require the database functions in this repository.
+- Create or join a private group with a six-character invite code. Each group follows one season.
+- Predict match scorelines before kickoff. The database enforces the pick deadline.
+- See your points and group standings after final results arrive. A corrected result recalculates affected picks.
+- Use the desktop dashboard or mobile navigation, and update your account name and email.
 
-## What it does
-
-- **Pick every match** — predict the exact scoreline before kickoff. Picks lock automatically when the match starts.
-- **Earn points** — 3 pts for the exact score, 1 pt for the correct result, 0 for a miss.
-- **Private groups** — create a group, share a 6-character invite code with your crew, and compete on a leaderboard.
-- **Group leaderboard** — points are recalculated when a result is entered or corrected; refresh the dashboard to see changes made by other people.
-- **Responsive workspace** — a wide desktop dashboard and compact mobile navigation.
-- **Account profile** — update your profile name and email through Supabase Auth. Group leaderboard names are chosen separately when you join a group.
+Current automated seasons are Premier League, La Liga, Bundesliga, Serie A, and Ligue 1 **2026/27**, plus Liga MX **Apertura 2026 regular season**. Completed fixtures remain visible as history; only upcoming fixtures accept picks.
 
 ## Tech stack
 
-| Layer        | Tech                                  |
-| ------------ | ------------------------------------- |
-| Frontend     | React, TypeScript, Tailwind CSS       |
-| Backend / DB | Supabase (PostgreSQL, Auth) |
-| Deployment   | Vercel                                |
+| Layer | Tech |
+| --- | --- |
+| Frontend | React, TypeScript, Tailwind CSS |
+| Data and auth | Supabase PostgreSQL and Auth |
+| Background imports | Supabase Edge Functions and Cron |
+| Hosting | Vercel |
 
-No custom backend server — Supabase handles auth and the database. The app currently fetches data on page load and after local pick changes; live subscriptions are a future improvement.
+There is no separate Node server. The browser uses the Supabase client; scheduled Edge Functions handle provider requests and trusted database writes.
 
-## Features
+## How results become points
 
-- Email auth with Supabase (sign up / sign in)
-- Create a private group → database-generated 6-char invite code and automatic creator membership
-- Join a group via a database-verified invite code
-- Pick submission with scoreline inputs, locked at kickoff
-- Points calculated by a PostgreSQL trigger when a trusted process sets or corrects the result
-- Group leaderboard with point totals — shows all members even at 0 pts
-- Browser users cannot edit match results or award themselves points
-- "How to Play" modal so anyone can jump in without explanation
+```text
+football-data.org / ESPN
+          ↓
+Supabase Cron → private Edge Function → matches table
+                                      ↓ result changes
+                              PostgreSQL scoring trigger
+                                      ↓
+                                picks.points → leaderboard
+```
 
-## Scoring
+Cron invokes the import functions every two hours. They save fixtures, kickoff changes, statuses, and final scorelines using stable provider IDs, so an update does not create a new match or detach existing picks. The **functions do not calculate points**: an `UPDATE` to a match result runs the PostgreSQL trigger, which scores every pick for that match. The same trigger handles later result corrections. The browser cannot edit results or points.
 
-| Prediction                             | Points |
-| -------------------------------------- | ------ |
-| Exact scoreline (e.g. 2-1, result 2-1) | 3 pts  |
-| Correct result / draw, wrong score     | 1 pt   |
-| Wrong result                           | 0 pts  |
+Points are based on the stored scoreline:
 
-## Database schema
+| Prediction | Points |
+| --- | ---: |
+| Exact scoreline | 3 |
+| Correct win/draw/loss, different scoreline | 1 |
+| Incorrect result | 0 |
+
+A match tied after extra time counts as a draw for pick scoring, even if one team advances on penalties. Points remain unset until a final result is saved.
+
+## Data model
 
 ```
 competitions    — id, name, kind
@@ -60,7 +62,14 @@ matches         — id, season_id, phase_id, team_home, team_away, kickoff_time,
 picks           — id, user_id, match_id, group_id, home_score_pred, away_score_pred, points
 ```
 
-Points are computed by a database trigger when a result is set or corrected. Predictions score the stored scoreline; a match tied after extra time is a draw for pick scoring even if one team advances on penalties. A result importer is planned but not built yet.
+Fixtures and results are shared across groups; a pick belongs to a specific user, match, and group. That lets two groups use the same real result while keeping their predictions and standings separate.
+
+## Scope and limitations
+
+- `sync-football-data` imports the five listed European leagues from football-data.org. `sync-liga-mx` imports Liga MX from ESPN's public scoreboard.
+- These importers target the named **2026/27** and **Apertura 2026** seasons. Adding a future season requires updating and deploying the importer and its schedule; season rollover is not automatic yet.
+- Liga MX currently includes the Apertura regular season, not playoffs. ESPN's feed is undocumented, so the importer validates the expected 153 fixtures, 18 teams, and match states before writing data. A provider change can stop that import until it is reviewed.
+- Results can appear after a match ends because they depend on the provider and the next scheduled sync. The dashboard fetches data on load and after local pick changes; it does not currently push live updates to open browsers.
 
 ## Data access
 
@@ -71,9 +80,9 @@ The SQL in `supabase/migrations/` is the reproducible database history. Apply it
 ## Running locally
 
 ```bash
-git clone https://github.com/your-username/world-cup-pickems
-cd world-cup-pickems
-npm install
+git clone https://github.com/jjoseramoss/wc26-pick-em.git
+cd wc26-pick-em
+npm ci
 ```
 
 Create a `.env.local` from the example file:
@@ -89,7 +98,7 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 ```
 
-For Codespaces, start the app with:
+Start the app with `npm run dev`. For Codespaces, use:
 
 ```bash
 npm run dev:host
@@ -123,15 +132,15 @@ restart Vite; the ignored `.env` will then be used.
 
 ## Testing
 
-Scoring logic is unit tested with Vitest:
+Scoring and provider normalization are unit tested with Vitest:
 
 ```bash
 npm test
 ```
 
-Covers exact scoreline, correct result, wrong result, draws, and edge cases like 0-0 and high-scoring games.
+The tests cover scorelines, draws, provider statuses, and fixture mapping.
 
-Database policy and scoring-flow tests are in `supabase/tests/`. With the Supabase CLI and Docker installed, use:
+Database access, group flows, and scoring triggers are tested in `supabase/tests/`. With the Supabase CLI and a Docker-compatible runtime, use:
 
 ```bash
 supabase start
@@ -142,8 +151,8 @@ The [test workflow](.github/workflows/test.yml) runs both frontend and database 
 
 ## Deployment
 
-Deployed on Vercel via GitHub integration — every push to `main` triggers a production deploy.
+Vercel deploys the frontend from `main`. Database migrations, Edge Functions, their secrets, and Cron schedules are deployed separately to Supabase; a frontend deploy alone does not install the background jobs.
 
 ---
 
-Built for the 2026 World Cup. USA · Canada · Mexico.
+Started for the 2026 World Cup; now built for ongoing soccer seasons.
